@@ -7,7 +7,6 @@ from langchain_community.vectorstores import FAISS
 from langchain_ollama import OllamaLLM
 from langchain_core.documents import Document
 from dotenv import load_dotenv
-import torch
 import os
 
 load_dotenv()
@@ -28,7 +27,7 @@ def load_data(data_path):
 
 
 def create_chunks(documents):
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=750, chunk_overlap=100)
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
     chunks = text_splitter.split_documents(documents)
     return chunks
 
@@ -37,8 +36,8 @@ def create_vector_store(text_chunks):
     embeddings = None
     try:
         embeddings = HuggingFaceEmbeddings(
-                model_name="all-MiniLM-L6-v2",
-                model_kwargs={'device': 'cpu'}
+                model_name="paraphrase-MiniLM-L6-v2",
+                model_kwargs={'device': 'gpu'}
             )
         print("Using HuggingFace embeddings")
     except Exception as e:
@@ -64,19 +63,19 @@ def get_response(query):
     # Load embeddings and the vector store
     embeddings = HuggingFaceEmbeddings(
         model_name="all-MiniLM-L6-v2",
-        model_kwargs={'device': 'cpu'}
+        model_kwargs={'device': 'gpu',"use_auth_token": os.getenv("HF_TOKEN")}
     )
     db = FAISS.load_local(DB_FAISS_PATH, embeddings, allow_dangerous_deserialization=True)
 
     # Retrieve relevant documents
-    retriever = db.as_retriever(search_kwargs={"k": 2})
+    retriever = db.as_retriever(search_kwargs={"k": 1})
     docs = retriever.invoke(query)
     
     # Combine document contents to form the context
     context = " ".join([doc.page_content for doc in docs])
 
     # Create the prompt for the model
-    prompt = f"""You are a helpful assistant. Use the provided context to answer the question accurately and concisely.
+    prompt = f"""You are a helpful assistant in a clinic. ypur job is to access the symptoms and reports submitted by the patient and provide a diagnosis and treatment plan.
 
 Context: {context}
 
